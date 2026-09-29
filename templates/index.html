@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MarketRisk Analytics — Console de Risque</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --gold:      #C9A84C;
+  --gold-dim:  #8B6E2A;
+  --ink:       #1A1814;
+  --paper:     #F5F2EA;
+  --paper2:    #EDE9DC;
+  --border:    rgba(180,155,90,0.28);
+  --muted:     #7A7260;
+  --safe:   #2D5A3F;
+  --risk:   #7A1A1A;
+  --hist:   #1A3560;
+  --param:  #6B3A1A;
+  --mc2:    #1A5560;
+  --cf:     #4A1A6B;
+  --neu:    #555555;
+}
+
+body {
+  font-family: 'DM Mono', monospace;
+  background: #E8E4D8;
+  color: var(--ink);
+  min-height: 100vh;
+}
+
+.app { width: 100%; min-height: 100vh; background: var(--paper); overflow: hidden; }
+
+/* HEADER */
+.header {
+  background: var(--paper); padding: 1.6rem 2rem;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+.logo { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 300; letter-spacing: -0.01em; color: var(--ink); }
+.logo em { color: var(--gold); font-style: italic; }
+.header-badge {
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold-dim);
+  border: 1px solid var(--border); padding: 5px 13px; border-radius: 4px;
+}
+.header-right { display:flex; align-items:center; gap: 14px; }
+.pdf-btn {
+  font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  font-weight: 500; background: var(--ink); color: var(--paper); border: none; border-radius: 7px;
+  padding: 9px 18px; cursor: pointer; transition: opacity 0.2s;
+}
+.pdf-btn:hover { opacity: 0.82; }
+.pdf-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* INFO BAR */
+.info-bar {
+  background: var(--paper2); border-bottom: 1px solid var(--border);
+  padding: 1rem 2rem; display: flex; align-items: flex-end; gap: 1.6rem; flex-wrap: wrap;
+}
+.info-stat { display: flex; flex-direction: column; gap: 3px; }
+.info-stat .is-lbl { font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold-dim); }
+.info-stat .is-val { font-family: 'Fraunces', serif; font-size: 19px; font-weight: 300; color: var(--gold); }
+.info-stat .is-val.ink { color: var(--ink); }
+.info-status {
+  font-size: 10px; color: var(--safe); border: 1px solid rgba(45,90,63,0.3); border-radius: 7px;
+  padding: 7px 12px; align-self: flex-end; background: rgba(45,90,63,0.04); line-height: 1.4;
+}
+.info-status.err {
+  color: var(--risk); border-color: rgba(122,26,26,0.3); background: rgba(122,26,26,0.05);
+}
+
+/* TABS */
+.tabs {
+  display: grid; grid-template-columns: repeat(6, 1fr);
+  border-bottom: 1px solid var(--border); background: var(--paper2);
+}
+.tab {
+  font-family: 'DM Mono', monospace; font-size: 10.5px; font-weight: 500;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+  padding: 1.1rem 0.6rem; cursor: pointer; background: none; border: none;
+  border-right: 1px solid var(--border); border-bottom: 3px solid transparent;
+  transition: color 0.18s, background 0.18s, border-color 0.18s; line-height: 1.4; text-align: center;
+}
+.tab:last-child { border-right: none; }
+.tab:hover:not(.active) { background: rgba(201,168,76,0.05); color: var(--ink); }
+.tab.active { color: var(--gold); background: var(--paper); border-bottom-color: var(--gold); }
+
+/* PANELS */
+.panel { display: none; padding: 2rem; }
+.panel.active { display: block; }
+
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+.g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+.g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+
+.slbl { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold-dim); margin-bottom: 1rem; }
+
+.field { margin-bottom: 1rem; }
+.field label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.02em; }
+.field select, .field input[type=date], .field input[type=number] {
+  width: 100%; font-family: 'DM Mono', monospace; font-size: 13px; color: var(--ink);
+  background: var(--paper2); border: 1px solid var(--border); border-radius: 7px; padding: 9px 12px; outline: none;
+}
+.field select:focus, .field input:focus { border-color: var(--gold); }
+
+.rcard { border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem 1.3rem; background: var(--paper2); margin-bottom: 0.75rem; }
+.rcard .rlbl { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.rcard .rval { font-family: 'Fraunces', serif; font-size: 30px; font-weight: 300; letter-spacing: -0.02em; }
+.rcard .rsub { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+.c-safe { color: var(--safe); } .c-risk { color: var(--risk); } .c-hist { color: var(--hist); }
+.c-param { color: var(--param); } .c-mc2 { color: var(--mc2); } .c-cf { color: var(--cf); }
+.c-neu { color: var(--neu); } .c-gold { color: var(--gold); }
+
+.tag { display: inline-block; font-size: 9px; letter-spacing: 0.1em; padding: 2px 8px; border-radius: 4px; margin-right: 3px; margin-bottom: 2px; }
+.tg-safe  { background:rgba(45,90,63,0.10);  color:var(--safe);  border:1px solid rgba(45,90,63,0.25); }
+.tg-risk  { background:rgba(122,26,26,0.08); color:var(--risk);  border:1px solid rgba(122,26,26,0.2); }
+.tg-hist  { background:rgba(26,53,96,0.08);  color:var(--hist);  border:1px solid rgba(26,53,96,0.2); }
+.tg-param { background:rgba(107,58,26,0.08); color:var(--param); border:1px solid rgba(107,58,26,0.2); }
+.tg-mc2   { background:rgba(26,85,96,0.08);  color:var(--mc2);   border:1px solid rgba(26,85,96,0.2); }
+.tg-cf    { background:rgba(74,26,107,0.08); color:var(--cf);    border:1px solid rgba(74,26,107,0.2); }
+.tg-neu   { background:rgba(80,80,80,0.07);  color:var(--neu);   border:1px solid rgba(80,80,80,0.18); }
+
+hr { border: none; border-top: 1px solid var(--border); margin: 1.75rem 0; }
+
+.run-btn {
+  background: var(--gold); color: #1A1814; font-family: 'DM Mono', monospace; font-size: 11px;
+  letter-spacing: 0.14em; text-transform: uppercase; border: none; border-radius: 8px; padding: 13px 22px;
+  cursor: pointer; font-weight: 500; transition: opacity 0.2s;
+}
+.run-btn:hover { opacity: 0.85; }
+.run-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.run-btn.wide { width: 100%; margin-top: 0.5rem; }
+
+.chart-wrap      { position: relative; width: 100%; height: 240px; }
+.chart-wrap-tall { position: relative; width: 100%; height: 300px; }
+
+.info-box {
+  background: rgba(201,168,76,0.07); border: 1px solid rgba(201,168,76,0.22);
+  border-radius: 8px; padding: 9px 13px; font-size: 10px; color: var(--muted); margin-bottom: 1rem; line-height: 1.6;
+}
+.info-box strong { color: var(--gold); }
+.info-box.err {
+  background: rgba(122,26,26,0.06); border-color: rgba(122,26,26,0.25); color: var(--risk);
+}
+
+.legend { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 0.75rem; }
+.leg    { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--muted); }
+.ldot   { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+.tbl { width: 100%; border-collapse: collapse; font-size: 11px; }
+.tbl th { text-align: left; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold-dim); padding: 7px 9px; border-bottom: 1px solid var(--border); font-weight: 400; }
+.tbl td { padding: 7px 9px; border-bottom: 1px solid rgba(180,155,90,0.1); }
+.tbl tr:last-child td { border-bottom: none; }
+.tbl .num { font-family: 'DM Mono', monospace; font-size: 11px; }
+.tscroll { overflow-x: auto; }
+
+.pill { display:inline-block; font-size:9px; padding:2px 9px; border-radius: 20px; font-weight:500; }
+.pill-safe { background:rgba(45,90,63,0.12); color:var(--safe); }
+.pill-risk { background:rgba(122,26,26,0.1); color:var(--risk); }
+.pill-warn { background:rgba(107,58,26,0.12); color:var(--param); }
+
+.heat-cell { border-left: 3px solid var(--gold); }
+.heat-cell.low  { border-left-color: var(--safe); }
+.heat-cell.mid  { border-left-color: var(--gold); }
+.heat-cell.high { border-left-color: var(--risk); }
+
+.empty-state {
+  text-align: center; padding: 3rem 1rem; color: var(--muted); font-size: 11px;
+  border: 1px dashed var(--border); border-radius: 10px;
+}
+
+@media (max-width: 860px) {
+  .g2, .g3, .g4 { grid-template-columns: 1fr; }
+  .tabs { grid-template-columns: repeat(3, 1fr); }
+  .tab { border-bottom: 1px solid var(--border); }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">Market<em>Risk</em></div>
+    <div class="header-right">
+      <button class="pdf-btn" id="pdf-btn" onclick="exporterPdf()">Export PDF</button>
+    </div>
+  </div>
+
+  <!-- INFO BAR -->
+  <div class="info-bar">
+    <div class="info-stat">
+      <div class="is-lbl">Valeur portefeuille</div>
+      <div class="is-val" id="ib-valeur">—</div>
+    </div>
+    <div class="info-stat">
+      <div class="is-lbl">Période couverte</div>
+      <div class="is-val ink" id="ib-periode">—</div>
+    </div>
+    <div class="info-stat">
+      <div class="is-lbl">Confiance VaR</div>
+      <div class="is-val ink" id="ib-confiance">—</div>
+    </div>
+    <div class="info-stat">
+      <div class="is-lbl">λ EWMA</div>
+      <div class="is-val ink" id="ib-lambda">—</div>
+    </div>
+    <div class="info-stat">
+      <div class="is-lbl">Scénarios MC</div>
+      <div class="is-val ink" id="ib-scenarios">—</div>
+    </div>
+    <div class="info-status" id="ib-status">Aucune analyse chargée</div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('config',this)">Configuration</button>
+    <button class="tab" onclick="switchTab('dash',this)">Tableau de bord</button>
+    <button class="tab" onclick="switchTab('donnees',this)">Données</button>
+    <button class="tab" onclick="switchTab('cov',this)">Covariance</button>
+    <button class="tab" onclick="switchTab('var',this)">VaR &amp; ES</button>
+    <button class="tab" onclick="switchTab('backtest',this)">Backtesting</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       PANEL — CONFIGURATION
+  ══════════════════════════════════════════ -->
+  <div class="panel active" id="panel-config">
+    <div class="g2">
+      <div>
+        <div class="slbl">Paramètres de l'analyse</div>
+        <div class="field">
+          <label>Date de début de l'historique</label>
+          <input type="date" id="cfg-start">
+        </div>
+        <div class="field">
+          <label>Niveau de confiance VaR</label>
+          <select id="cfg-confidence">
+            <option value="0.95">95 %</option>
+            <option value="0.975">97,5 %</option>
+            <option value="0.99" selected>99 %</option>
+            <option value="0.999">99,9 %</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Facteur de décroissance EWMA (λ) <span style="float:right;color:var(--gold)" id="cfg-lambda-v">0.94</span></label>
+          <input type="range" id="cfg-lambda" min="0.80" max="0.99" value="0.94" step="0.01"
+            oninput="document.getElementById('cfg-lambda-v').textContent=this.value" style="accent-color:var(--gold)">
+        </div>
+        <div class="field">
+          <label>Scénarios Monte Carlo <span style="float:right;color:var(--gold)" id="cfg-mc-v">50 000</span></label>
+          <input type="range" id="cfg-mc" min="1000" max="500000" value="50000" step="1000"
+            oninput="document.getElementById('cfg-mc-v').textContent=parseInt(this.value).toLocaleString('fr')" style="accent-color:var(--gold)">
+        </div>
+        <button class="run-btn wide" id="cfg-btn" onclick="construireAnalyse()">&#9654; Lancer l'analyse</button>
+        <div id="cfg-error" class="info-box err" style="display:none; margin-top:0.75rem;"></div>
+      </div>
+
+      <div>
+        <div class="slbl">Dernière analyse chargée</div>
+        <div class="tscroll">
+          <table class="tbl">
+            <tr><td>Période couverte</td><td class="num" id="cfg-tbl-periode">—</td></tr>
+            <tr><td>Jours de trading</td><td class="num" id="cfg-tbl-jours">—</td></tr>
+            <tr><td>Confiance VaR</td><td class="num" id="cfg-tbl-conf">—</td></tr>
+            <tr><td>λ EWMA</td><td class="num" id="cfg-tbl-lambda">—</td></tr>
+            <tr><td>Scénarios Monte Carlo</td><td class="num" id="cfg-tbl-mc">—</td></tr>
+            <tr><td>Valeur du portefeuille</td><td class="num" id="cfg-tbl-valeur">—</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div><!-- end panel-config -->
+
+  <!-- ══════════════════════════════════════════
+       PANEL — TABLEAU DE BORD
+  ══════════════════════════════════════════ -->
+  <div class="panel" id="panel-dash">
+    <div id="dash-empty" class="empty-state">Aucune analyse chargée</div>
+    <div id="dash-content" style="display:none;">
+      <div class="slbl" id="dash-titre">Portefeuille multi-actifs</div>
+
+      <div class="g4" style="margin-bottom:0.75rem;">
+        <div class="rcard">
+          <div class="rlbl">Valeur du portefeuille</div>
+          <div class="rval c-gold" id="dash-valeur">—</div>
+          <div class="rsub" id="dash-nfacteurs">—</div>
+        </div>
+        <div class="rcard">
+          <div class="rlbl"><span class="tag tg-hist">Historique</span></div>
+          <div class="rval c-hist" id="dash-var-hist">—</div>
+          <div class="rsub">VaR du portefeuille</div>
+        </div>
+        <div class="rcard">
+          <div class="rlbl"><span class="tag tg-param">Paramétrique EWMA</span></div>
+          <div class="rval c-param" id="dash-var-param">—</div>
+          <div class="rsub">VaR du portefeuille</div>
+        </div>
+        <div class="rcard">
+          <div class="rlbl"><span class="tag tg-safe">Volatilité</span></div>
+          <div class="rval c-safe" id="dash-vol">—</div>
+          <div class="rsub">annualisée · rendement attendu <span id="dash-rend"></span></div>
+        </div>
+      </div>
+
+      <hr>
+      <div class="slbl">Matrice de risque par actif</div>
+      <div class="g3" id="heatGrid" style="margin-bottom:0.5rem;"></div>
+
+      <hr>
+      <div class="g2">
+        <div>
+          <div class="slbl">Évolution de la valeur du portefeuille</div>
+          <div class="chart-wrap"><canvas id="chartValeur"></canvas></div>
+        </div>
+        <div>
+          <div class="slbl">Répartition du portefeuille</div>
+          <div class="chart-wrap"><canvas id="chartPoids"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div><!-- end panel-dash -->
+
+  <!-- ══════════════════════════════════════════
+       PANEL — DONNÉES HISTORIQUES
+  ══════════════════════════════════════════ -->
+  <div class="panel" id="panel-donnees">
+    <div id="donnees-empty" class="empty-state">Aucune analyse chargée</div>
+    <div id="donnees-content" style="display:none;">
+      <div class="slbl">Statistiques descriptives par actif</div>
+      <div class="tscroll" style="margin-bottom:1.5rem;">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>Actif</th><th>Complétude</th><th>Rendement moy. annuel</th>
+              <th>Vol. journalière</th><th>Vol. annualisée</th><th>Min</th><th>Max</th>
+            </tr>
+          </thead>
+          <tbody id="donnees-tbody"></tbody>
+        </table>
+      </div>
+      <div class="slbl">Rendement cumulé par actif</div>
+      <div class="chart-wrap-tall"><canvas id="chartCumul"></canvas></div>
+    </div>
+  </div><!-- end panel-donnees -->
+
+  <!-- ══════════════════════════════════════════
+       PANEL — COVARIANCE & CORRÉLATION
+  ══════════════════════════════════════════ -->
+  <div class="panel" id="panel-cov">
+    <div id="cov-empty" class="empty-state">Aucune analyse chargée</div>
+    <div id="cov-content" style="display:none;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; flex-wrap:wrap; gap:0.75rem;">
+        <div>
+          <button class="run-btn" id="cov-simple-btn" onclick="setCovMethode('simple')" style="border-radius:8px 0 0 8px;">Covariance simple</button>
+          <button class="run-btn" id="cov-ewma-btn" onclick="setCovMethode('ewma')" style="background:var(--paper2); color:var(--ink); border:1px solid var(--border); border-radius:0 8px 8px 0; margin-left:-1px;">Covariance EWMA</button>
+        </div>
+      </div>
+
+      <div class="slbl">Matrice de corrélation (méthode <span id="cov-methode-label">simple (poids égal)</span>)</div>
+      <div id="plotCorr" style="width:100%; height:460px; margin-bottom:1.5rem;"></div>
+
+      <div class="slbl">Matrice de covariance annualisée</div>
+      <div id="plotCov" style="width:100%; height:460px;"></div>
+    </div>
+  </div><!-- end panel-cov -->
+
+  <!-- ══════════════════════════════════════════
+       PANEL — VAR & EXPECTED SHORTFALL
+  ══════════════════════════════════════════ -->
+  <div class="panel" id="panel-var">
+    <div id="var-empty" class="empty-state">Aucune analyse chargée</div>
+    <div id="var-content" style="display:none;">
+      <div class="slbl">Comparaison des méthodes</div>
+
+      <div class="g3" id="varCardsGrid" style="margin-bottom:1.5rem;"></div>
+
+      <div class="slbl">Comparaison graphique</div>
+      <div class="chart-wrap-tall" style="margin-bottom:1.5rem;"><canvas id="chartVar"></canvas></div>
+
+      <div class="slbl">Tableau détaillé</div>
+      <div class="tscroll">
+        <table class="tbl">
+          <thead>
+            <tr><th>Méthode</th><th>VaR (USD)</th><th>VaR (%)</th><th>Expected Shortfall (USD)</th><th>ES (%)</th><th>Ratio ES/VaR</th></tr>
+          </thead>
+          <tbody id="var-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- end panel-var -->
+
+  <!-- ══════════════════════════════════════════
+       PANEL — BACKTESTING
+  ══════════════════════════════════════════ -->
+  <div class="panel" id="panel-backtest">
+    <div id="backtest-empty" class="empty-state">Aucune analyse chargée</div>
+    <div id="backtest-content" style="display:none;">
+      <div class="g3" style="margin-bottom:1.5rem; align-items:end;">
+        <div class="field" style="margin-bottom:0;">
+          <label>Fenêtre glissante (jours)</label>
+          <input type="number" id="bt-window" value="250" min="60" max="1000" step="10">
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; padding-bottom:9px;">
+          <input type="checkbox" id="bt-mc" style="width:16px; height:16px; accent-color:var(--gold);">
+          <label for="bt-mc" style="font-size:11px; color:var(--muted);">Inclure Monte Carlo (plus lent)</label>
+        </div>
+        <button class="run-btn" id="bt-btn" onclick="runBacktest()">&#9654; Lancer le backtest</button>
+      </div>
+      <div id="bt-error" class="info-box err" style="display:none; margin-bottom:1rem;"></div>
+
+      <div id="bt-results" style="display:none;">
+        <div class="slbl">Résumé comparatif</div>
+        <div class="tscroll" style="margin-bottom:1.5rem;">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Méthode</th><th>Testés</th><th>Violations</th><th>Taux observé</th><th>Taux attendu</th>
+                <th>Kupiec p</th><th>Rejeté</th><th>Christoffersen p</th><th>Groupées</th><th>Zone Bâle</th>
+              </tr>
+            </thead>
+            <tbody id="bt-tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="slbl">P&amp;L réel vs VaR estimée (<span id="bt-chart-methode">Historique</span>)</div>
+        <div class="chart-wrap-tall" style="margin-bottom:1rem;"><canvas id="chartBacktest"></canvas></div>
+        <div class="legend">
+          <div class="leg"><div class="ldot" style="background:var(--hist)"></div>P&amp;L réel</div>
+          <div class="leg"><div class="ldot" style="background:var(--risk)"></div>VaR estimée</div>
+        </div>
+      </div>
+    </div>
+  </div><!-- end panel-backtest -->
+
+</div><!-- end .app -->
+
+<script>
+Chart.defaults.color = '#7A7260';
+Chart.defaults.font.family = "DM Mono, monospace";
+
+// ════════════════════════════════════════════════
+// ÉTAT CÔTÉ CLIENT
+// ════════════════════════════════════════════════
+let ANALYSE_CHARGEE = false;
+const chartInstances = {}; // pour détruire proprement avant de redessiner
+
+function detruireChart(id) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+}
+
+function fmtUsd(v) {
+  if (v === null || v === undefined || isNaN(v)) return '—';
+  return '$' + Math.round(v).toLocaleString('fr').replace(/,/g, ' ');
+}
+function fmtPct(v, dec = 2) {
+  if (v === null || v === undefined || isNaN(v)) return '—';
+  return v.toFixed(dec) + '%';
+}
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+// ════════════════════════════════════════════════
+// TAB SWITCH
+// ════════════════════════════════════════════════
+function switchTab(id, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-' + id).classList.add('active');
+
+  if (!ANALYSE_CHARGEE) return;
+  if (id === 'dash') chargerDashboard();
+  else if (id === 'donnees') chargerDonnees();
+  else if (id === 'cov') chargerCovariance();
+  else if (id === 'var') chargerVar();
+  // 'backtest' se lance manuellement via le bouton
+}
+
+// ════════════════════════════════════════════════
+// INFO BAR
+// ════════════════════════════════════════════════
+function refreshInfoBar(meta, confidence, n_scenarios_mc, valeur_portefeuille, statusText, isErr = false) {
+  document.getElementById('ib-valeur').textContent = fmtUsd(valeur_portefeuille);
+  document.getElementById('ib-periode').textContent = meta ? `${fmtDate(meta.start_date)} → ${fmtDate(meta.end_date)}` : '—';
+  document.getElementById('ib-confiance').textContent = confidence != null ? (confidence * 100).toFixed(1) + '%' : '—';
+  document.getElementById('ib-lambda').textContent = meta ? meta.lambda_ewma : '—';
+  document.getElementById('ib-scenarios').textContent = n_scenarios_mc != null ? n_scenarios_mc.toLocaleString('fr') : '—';
+  const status = document.getElementById('ib-status');
+  status.textContent = statusText;
+  status.classList.toggle('err', isErr);
+}
+
+function refreshConfigTable(meta, confidence, n_scenarios_mc, valeur_portefeuille) {
+  document.getElementById('cfg-tbl-periode').textContent = meta ? `${fmtDate(meta.start_date)} → ${fmtDate(meta.end_date)}` : '—';
+  document.getElementById('cfg-tbl-jours').textContent = meta ? meta.n_obs : '—';
+  document.getElementById('cfg-tbl-conf').textContent = confidence != null ? (confidence * 100).toFixed(1) + ' %' : '—';
+  document.getElementById('cfg-tbl-lambda').textContent = meta ? meta.lambda_ewma : '—';
+  document.getElementById('cfg-tbl-mc').textContent = n_scenarios_mc != null ? n_scenarios_mc.toLocaleString('fr') : '—';
+  document.getElementById('cfg-tbl-valeur').textContent = fmtUsd(valeur_portefeuille);
+}
+
+// ════════════════════════════════════════════════
+// STATUT AU CHARGEMENT DE LA PAGE
+// ════════════════════════════════════════════════
+async function verifierStatut() {
+  try {
+    const res = await fetch('/api/status');
+    const data = await res.json();
+    if (data.chargee) {
+      ANALYSE_CHARGEE = true;
+      refreshInfoBar(data.meta, data.confidence, data.n_scenarios_mc, data.valeur_portefeuille, 'Analyse chargée');
+      refreshConfigTable(data.meta, data.confidence, data.n_scenarios_mc, data.valeur_portefeuille);
+      document.getElementById('cfg-confidence').value = String(data.confidence);
+      document.getElementById('cfg-lambda').value = data.meta.lambda_ewma;
+      document.getElementById('cfg-lambda-v').textContent = data.meta.lambda_ewma;
+      document.getElementById('cfg-mc').value = data.n_scenarios_mc;
+      document.getElementById('cfg-mc-v').textContent = data.n_scenarios_mc.toLocaleString('fr');
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// ════════════════════════════════════════════════
+// CONSTRUCTION DE L'ANALYSE
+// ════════════════════════════════════════════════
+async function construireAnalyse() {
+  const btn = document.getElementById('cfg-btn');
+  const errBox = document.getElementById('cfg-error');
+  errBox.style.display = 'none';
+
+  const startDate = document.getElementById('cfg-start').value;
+  const confidence = parseFloat(document.getElementById('cfg-confidence').value);
+  const lambdaEwma = parseFloat(document.getElementById('cfg-lambda').value);
+  const nScenariosMc = parseInt(document.getElementById('cfg-mc').value);
+
+  if (!startDate) {
+    errBox.textContent = "La date de début est obligatoire.";
+    errBox.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Construction en cours... (téléchargement des données de marché)';
+  refreshInfoBar(null, confidence, nScenariosMc, null, 'Construction en cours...');
+
+  try {
+    const res = await fetch('/api/analyse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        start_date: startDate, confidence, lambda_ewma: lambdaEwma, n_scenarios_mc: nScenariosMc,
+      }),
+    });
+    const data = await res.json();
+
+    if (!data.ok) {
+      errBox.textContent = data.error || "Échec de la construction des données.";
+      errBox.style.display = 'block';
+      refreshInfoBar(null, null, null, null, 'Échec de la construction', true);
+      return;
+    }
+
+    ANALYSE_CHARGEE = true;
+    refreshInfoBar(data.meta, data.confidence, data.n_scenarios_mc, data.valeur_portefeuille, '✓ Analyse construite');
+    refreshConfigTable(data.meta, data.confidence, data.n_scenarios_mc, data.valeur_portefeuille);
+
+    // Recharge l'onglet actif s'il dépend de l'analyse
+    const activeTab = document.querySelector('.tab.active');
+    const activePanelId = document.querySelector('.panel.active').id.replace('panel-', '');
+    if (activePanelId === 'dash') chargerDashboard();
+    else if (activePanelId === 'donnees') chargerDonnees();
+    else if (activePanelId === 'cov') chargerCovariance();
+    else if (activePanelId === 'var') chargerVar();
+  } catch (e) {
+    console.error(e);
+    errBox.textContent = "Erreur réseau lors de la construction de l'analyse.";
+    errBox.style.display = 'block';
+    refreshInfoBar(null, null, null, null, 'Erreur réseau', true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '&#9654; Construire les données et lancer l\'analyse';
+  }
+}
+
+// ════════════════════════════════════════════════
+// TABLEAU DE BORD
+// ════════════════════════════════════════════════
+async function chargerDashboard() {
+  const res = await fetch('/api/dashboard');
+  const data = await res.json();
+  document.getElementById('dash-empty').style.display = data.ok ? 'none' : 'block';
+  document.getElementById('dash-content').style.display = data.ok ? 'block' : 'none';
+  if (!data.ok) return;
+
+  document.getElementById('dash-titre').textContent =
+    `Portefeuille multi-actifs — VaR ${(data.confidence ? data.confidence * 100 : '')}% · 1 jour · USD`;
+  document.getElementById('dash-valeur').textContent = fmtUsd(data.valeur_portefeuille);
+  document.getElementById('dash-nfacteurs').textContent = `${data.actifs.length} facteurs de risque`;
+  document.getElementById('dash-var-hist').textContent = fmtUsd(data.var_historique);
+  document.getElementById('dash-var-param').textContent = fmtUsd(data.var_parametrique_ewma);
+  document.getElementById('dash-vol').textContent = data.vol_annuelle_pct != null ? data.vol_annuelle_pct.toFixed(2) + '%' : '—';
+  document.getElementById('dash-rend').textContent = data.rendement_annuel_pct != null ? data.rendement_annuel_pct.toFixed(2) + '%' : '—';
+
+  const heatGrid = document.getElementById('heatGrid');
+  heatGrid.innerHTML = data.actifs.map(a => {
+    const vol = a.vol_pct;
+    const cls = vol == null ? 'mid' : (vol < 15 ? 'low' : (vol < 30 ? 'mid' : 'high'));
+    const pillCls = cls === 'low' ? 'pill-safe' : (cls === 'mid' ? 'pill-warn' : 'pill-risk');
+    return `
+      <div class="rcard heat-cell ${cls}">
+        <div class="rlbl">${a.nom}</div>
+        <div class="rval" style="font-size:22px;">${fmtPct(vol, 1)}</div>
+        <span class="pill ${pillCls}">Vol. annualisée</span>
+        <div class="rsub">Poids : ${fmtPct(a.poids_pct, 1)} · Exposition : ${fmtUsd(a.exposition)}</div>
+      </div>`;
+  }).join('');
+
+  detruireChart('chartValeur');
+  chartInstances.chartValeur = new Chart(document.getElementById('chartValeur'), {
+    type: 'line',
+    data: { labels: data.evolution.dates, datasets: [{
+      label: 'Valeur du portefeuille (USD)', data: data.evolution.valeurs,
+      borderColor: '#C9A84C', backgroundColor: 'rgba(201,168,76,0.10)',
+      fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2.2,
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { maxTicksLimit: 6 }, grid: { color: 'rgba(120,110,90,0.08)' } },
+        y: { ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'k' }, grid: { color: 'rgba(120,110,90,0.08)' } },
+      },
+    },
+  });
+
+  const palette = ['#C9A84C','#1A3560','#6B3A1A','#2D5A3F','#1A5560','#4A1A6B','#7A1A1A','#8B6E2A','#555555'];
+  detruireChart('chartPoids');
+  chartInstances.chartPoids = new Chart(document.getElementById('chartPoids'), {
+    type: 'doughnut',
+    data: {
+      labels: data.repartition.labels,
+      datasets: [{
+        data: data.repartition.poids_pct,
+        backgroundColor: data.repartition.labels.map((_, i) => palette[i % palette.length]),
+        borderWidth: 2, borderColor: '#F5F2EA',
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 9, font: { size: 9.5 }, color: '#7A7260' } } },
+    },
+  });
+}
+
+// ════════════════════════════════════════════════
+// DONNÉES HISTORIQUES
+// ════════════════════════════════════════════════
+async function chargerDonnees() {
+  const res = await fetch('/api/donnees');
+  const data = await res.json();
+  document.getElementById('donnees-empty').style.display = data.ok ? 'none' : 'block';
+  document.getElementById('donnees-content').style.display = data.ok ? 'block' : 'none';
+  if (!data.ok) return;
+
+  const tbody = document.getElementById('donnees-tbody');
+  tbody.innerHTML = data.lignes.map(l => {
+    const pillCls = l.completude >= 98 ? 'pill-safe' : (l.completude >= 90 ? 'pill-warn' : 'pill-risk');
+    const retColor = (l.rendement_moyen_annuel ?? 0) >= 0 ? 'var(--safe)' : 'var(--risk)';
+    return `
+      <tr>
+        <td><strong>${l.actif}</strong></td>
+        <td><span class="pill ${pillCls}">${fmtPct(l.completude, 1)}</span></td>
+        <td class="num" style="color:${retColor}">${fmtPct(l.rendement_moyen_annuel)}</td>
+        <td class="num">${l.vol_journaliere != null ? l.vol_journaliere.toFixed(3) : '—'}%</td>
+        <td class="num">${fmtPct(l.vol_annualisee)}</td>
+        <td class="num">${l.sharpe != null ? l.sharpe.toFixed(2) : '—'}</td>
+        <td class="num" style="color:var(--risk)">${fmtPct(l.min)}</td>
+        <td class="num" style="color:var(--safe)">${fmtPct(l.max)}</td>
+      </tr>`;
+  }).join('');
+
+  const palette = ['#C9A84C','#1A3560','#6B3A1A','#2D5A3F','#1A5560','#4A1A6B','#7A1A1A','#8B6E2A','#3d3d3d'];
+  const datasets = data.actifs.map((a, i) => ({
+    label: a, data: data.cumul.series[a] || [],
+    borderColor: palette[i % palette.length], fill: false, tension: 0.2, pointRadius: 0, borderWidth: 1.6,
+  }));
+
+  detruireChart('chartCumul');
+  chartInstances.chartCumul = new Chart(document.getElementById('chartCumul'), {
+    type: 'line',
+    data: { labels: data.cumul.dates, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 9, font: { size: 9.5 }, color: '#7A7260' } } },
+      scales: {
+        x: { ticks: { maxTicksLimit: 12 }, grid: { color: 'rgba(120,110,90,0.08)' } },
+        y: { grid: { color: 'rgba(120,110,90,0.08)' }, title: { display: true, text: 'Base 1.0', color: '#7A7260', font: { size: 10 } } },
+      },
+    },
+  });
+}
+
+// ════════════════════════════════════════════════
+// COVARIANCE & CORRÉLATION
+// ════════════════════════════════════════════════
+let covMethode = 'simple';
+
+function plotlyLayout(extra) {
+  return Object.assign({
+    paper_bgcolor: '#EDE9DC', plot_bgcolor: '#EDE9DC',
+    font: { color: '#5b5346', family: 'DM Mono, monospace', size: 10.5 },
+    margin: { l: 100, r: 20, t: 10, b: 80 },
+  }, extra);
+}
+
+async function chargerCovariance() {
+  const res = await fetch(`/api/covariance?methode=${covMethode}`);
+  const data = await res.json();
+  document.getElementById('cov-empty').style.display = data.ok ? 'none' : 'block';
+  document.getElementById('cov-content').style.display = data.ok ? 'block' : 'none';
+  if (!data.ok) return;
+
+  document.getElementById('cov-methode-label').textContent =
+    covMethode === 'simple' ? 'simple (poids égal)' : `EWMA (λ=${data.lambda_ewma})`;
+
+  Plotly.newPlot('plotCorr', [{
+    z: data.corr_matrix, x: data.actifs, y: data.actifs, type: 'heatmap',
+    colorscale: [[0,'#7A1A1A'],[0.5,'#EDE9DC'],[1,'#2D5A3F']],
+    zmin: -1, zmax: 1,
+    text: data.corr_matrix.map(row => row.map(v => v != null ? v.toFixed(2) : '')),
+    texttemplate: '%{text}',
+    textfont: { size: 9.5, color: '#1A1814' },
+    hovertemplate: '%{y} × %{x}<br>Corrélation : %{z:.3f}<extra></extra>',
+    colorbar: { title: 'Corrélation', tickfont: { color: '#7A7260' } },
+    xgap: 3, ygap: 3,
+  }], plotlyLayout({
+    xaxis: { tickangle: -35, gridcolor: '#dcd6c4' },
+    yaxis: { autorange: 'reversed', gridcolor: '#dcd6c4' },
+  }), { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['lasso2d','select2d'] });
+
+  const covFlat = data.cov_matrix.flat().filter(v => v != null).map(Math.abs);
+  const covAbsMax = covFlat.length ? Math.max(...covFlat) : 1;
+  Plotly.newPlot('plotCov', [{
+    z: data.cov_matrix, x: data.actifs, y: data.actifs, type: 'heatmap',
+    colorscale: [[0,'#7A1A1A'],[0.5,'#EDE9DC'],[1,'#1A3560']],
+    zmin: -covAbsMax, zmax: covAbsMax,
+    hovertemplate: '%{y} × %{x}<br>Covariance : %{z:.6f}<extra></extra>',
+    colorbar: { title: 'Covariance', tickfont: { color: '#7A7260' } },
+    xgap: 3, ygap: 3,
+  }], plotlyLayout({
+    xaxis: { tickangle: -35, gridcolor: '#dcd6c4' },
+    yaxis: { autorange: 'reversed', gridcolor: '#dcd6c4' },
+  }), { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['lasso2d','select2d'] });
+}
+
+function setCovMethode(m) {
+  covMethode = m;
+  const simpleBtn = document.getElementById('cov-simple-btn');
+  const ewmaBtn = document.getElementById('cov-ewma-btn');
+  if (m === 'simple') {
+    simpleBtn.style.background = 'var(--gold)'; simpleBtn.style.color = '#1A1814'; simpleBtn.style.border = 'none';
+    ewmaBtn.style.background = 'var(--paper2)'; ewmaBtn.style.color = 'var(--ink)'; ewmaBtn.style.border = '1px solid var(--border)';
+  } else {
+    ewmaBtn.style.background = 'var(--gold)'; ewmaBtn.style.color = '#1A1814'; ewmaBtn.style.border = 'none';
+    simpleBtn.style.background = 'var(--paper2)'; simpleBtn.style.color = 'var(--ink)'; simpleBtn.style.border = '1px solid var(--border)';
+  }
+  if (ANALYSE_CHARGEE) chargerCovariance();
+}
+
+// ════════════════════════════════════════════════
+// VAR & EXPECTED SHORTFALL
+// ════════════════════════════════════════════════
+const VAR_STYLE = {
+  'Historique':              { tag: 'hist',  color: 'var(--hist)',  hex: '#1A3560' },
+  'Paramétrique (EWMA)':     { tag: 'param', color: 'var(--param)', hex: '#6B3A1A' },
+  'Monte Carlo (EWMA)':      { tag: 'mc2',   color: 'var(--mc2)',   hex: '#1A5560' },
+  'Paramétrique (simple)':   { tag: 'cf',    color: 'var(--cf)',    hex: '#4A1A6B' },
+  'Monte Carlo (simple)':    { tag: 'neu',   color: 'var(--neu)',   hex: '#555555' },
+};
+
+async function chargerVar() {
+  const res = await fetch('/api/var');
+  const data = await res.json();
+  document.getElementById('var-empty').style.display = data.ok ? 'none' : 'block';
+  document.getElementById('var-content').style.display = data.ok ? 'block' : 'none';
+  if (!data.ok) return;
+
+  document.getElementById('var-scenarios-label').textContent = data.n_scenarios_mc.toLocaleString('fr');
+
+  const grid = document.getElementById('varCardsGrid');
+  grid.innerHTML = data.lignes.map(l => {
+    const s = VAR_STYLE[l.methode] || { tag: 'neu', color: 'var(--neu)', hex: '#555555' };
+    const ratio = (l.ES != null && l.VaR) ? (l.ES / l.VaR).toFixed(2) : '—';
+    return `
+      <div class="rcard">
+        <div class="rlbl"><span class="tag tg-${s.tag}">${l.methode}</span></div>
+        <div class="rval" style="color:${s.color}">${fmtUsd(l.VaR)}</div>
+        <div class="rsub">ES : ${fmtUsd(l.ES)} · ratio ${ratio} · ${fmtPct(l.VaR_pct)} du portefeuille</div>
+      </div>`;
+  }).join('');
+
+  const tbody = document.getElementById('var-tbody');
+  tbody.innerHTML = data.lignes.map(l => {
+    const s = VAR_STYLE[l.methode] || { tag: 'neu' };
+    const ratio = (l.ES != null && l.VaR) ? (l.ES / l.VaR).toFixed(2) : '—';
+    return `
+      <tr>
+        <td><span class="tag tg-${s.tag}">${l.methode}</span></td>
+        <td class="num">${fmtUsd(l.VaR)}</td>
+        <td class="num">${fmtPct(l.VaR_pct)}</td>
+        <td class="num">${fmtUsd(l.ES)}</td>
+        <td class="num">${fmtPct(l.ES_pct)}</td>
+        <td class="num">${ratio}</td>
+      </tr>`;
+  }).join('');
+
+  detruireChart('chartVar');
+  chartInstances.chartVar = new Chart(document.getElementById('chartVar'), {
+    type: 'bar',
+    data: {
+      labels: data.lignes.map(l => l.methode),
+      datasets: [
+        { label: 'VaR', data: data.lignes.map(l => l.VaR),
+          backgroundColor: data.lignes.map(l => (VAR_STYLE[l.methode]?.hex || '#555555') + 'CC'), borderRadius: 6 },
+        { label: 'Expected Shortfall', data: data.lignes.map(l => l.ES),
+          backgroundColor: data.lignes.map(l => (VAR_STYLE[l.methode]?.hex || '#555555') + '55'), borderRadius: 6 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { color: '#7A7260', font: { size: 10.5 } } } },
+      scales: {
+        x: { grid: { display: false } },
+        y: { grid: { color: 'rgba(120,110,90,0.08)' }, ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'k' } },
+      },
+    },
+  });
+}
+
+// ════════════════════════════════════════════════
+// BACKTESTING
+// ════════════════════════════════════════════════
+async function runBacktest() {
+  const btn = document.getElementById('bt-btn');
+  const errBox = document.getElementById('bt-error');
+  const resultsBox = document.getElementById('bt-results');
+  errBox.style.display = 'none';
+
+  const window_ = parseInt(document.getElementById('bt-window').value);
+  const inclureMc = document.getElementById('bt-mc').checked;
+
+  btn.disabled = true;
+  btn.textContent = 'Backtest en cours...';
+
+  try {
+    const res = await fetch('/api/backtest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ window: window_, inclure_mc: inclureMc }),
+    });
+    const data = await res.json();
+
+    document.getElementById('backtest-empty').style.display = 'none';
+    document.getElementById('backtest-content').style.display = 'block';
+
+    if (!data.ok) {
+      errBox.textContent = data.error || "Échec du backtest.";
+      errBox.style.display = 'block';
+      resultsBox.style.display = 'none';
+      return;
+    }
+
+    resultsBox.style.display = 'block';
+
+    const tbody = document.getElementById('bt-tbody');
+    tbody.innerHTML = data.lignes.map(r => {
+      const s = VAR_STYLE[r.label] || { tag: 'neu' };
+      const zoneClass = r.zone === 'Verte' ? 'pill-safe' : (r.zone === 'Jaune' ? 'pill-warn' : 'pill-risk');
+      return `
+      <tr>
+        <td><span class="tag tg-${s.tag}">${r.label}</span></td>
+        <td class="num">${r.n_obs}</td>
+        <td class="num">${r.violations}</td>
+        <td class="num">${fmtPct(r.taux_observe_pct)}</td>
+        <td class="num">${fmtPct(r.taux_attendu_pct)}</td>
+        <td class="num">${r.kupiec_p != null ? r.kupiec_p.toFixed(4) : '—'}</td>
+        <td><span class="pill ${r.kupiec_rejet ? 'pill-risk' : 'pill-safe'}">${r.kupiec_rejet ? 'Oui' : 'Non'}</span></td>
+        <td class="num">${r.christo_p != null ? r.christo_p.toFixed(4) : '—'}</td>
+        <td><span class="pill ${r.christo_rejet ? 'pill-risk' : 'pill-safe'}">${r.christo_rejet ? 'Oui' : 'Non'}</span></td>
+        <td><span class="pill ${zoneClass}">${r.zone}</span></td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('bt-chart-methode').textContent = data.chart.methode;
+    detruireChart('chartBacktest');
+    chartInstances.chartBacktest = new Chart(document.getElementById('chartBacktest'), {
+      type: 'line',
+      data: {
+        labels: data.chart.dates,
+        datasets: [
+          { label: 'P&L réel', data: data.chart.pnl, borderColor: '#1A3560', pointRadius: 0, borderWidth: 1.4, tension: 0.1 },
+          { label: '-VaR estimée', data: data.chart.var_neg, borderColor: '#7A1A1A', borderDash: [4,3], pointRadius: 0, borderWidth: 1.6 },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: 'rgba(120,110,90,0.08)' }, ticks: { maxTicksLimit: 8 } },
+          y: { grid: { color: 'rgba(120,110,90,0.08)' }, ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'k' } },
+        },
+      },
+    });
+  } catch (e) {
+    console.error(e);
+    errBox.textContent = "Erreur réseau lors du backtest.";
+    errBox.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '&#9654; Lancer le backtest';
+  }
+}
+
+// ════════════════════════════════════════════════
+// EXPORT PDF
+// ════════════════════════════════════════════════
+function exporterPdf() {
+  if (!ANALYSE_CHARGEE) {
+    alert("Construisez d'abord une analyse depuis l'onglet Configuration.");
+    return;
+  }
+  window.location.href = '/api/export/pdf';
+}
+
+// ════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════
+document.getElementById('backtest-empty').style.display = 'block';
+verifierStatut().then(() => {
+  if (ANALYSE_CHARGEE) {
+    document.getElementById('backtest-empty').style.display = 'none';
+    document.getElementById('backtest-content').style.display = 'block';
+  }
+});
+</script>
+</body>
+</html>
