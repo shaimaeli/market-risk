@@ -17,8 +17,7 @@ from var_hist import var_es_historique
 from var_mc import var_es_montecarlo
 from portefeuille_info import portfolio_metrics
 from backtesting import rolling_backtest, summarize_backtest
-from statistical_tests import kupiec_test, traffic_light_zone, christoffersen_independence_test
-
+from statistical_tests import traffic_light_zone
 app = Flask(__name__)
 app.secret_key = "risk-console-dev-key"  
 
@@ -130,8 +129,6 @@ def index():
 
 @app.route("/api/status")
 def api_status():
-    """Permet au front-end de savoir, au chargement de la page, si une
-    analyse est déjà en mémoire côté serveur (utile après un rechargement)."""
     if not etat_dispo():
         return jsonify({"ok": True, "chargee": False})
 
@@ -166,7 +163,7 @@ def api_analyse():
     if not start_date:
         return jsonify({
             "ok": False,
-            "error": "La date de début est obligatoire — aucune valeur par défaut n'est utilisée.",
+            "error": "La date de début est obligatoire.",
         }), 400
 
     try:
@@ -374,9 +371,7 @@ def api_backtest():
         return jsonify({
             "ok": False,
             "error": (
-                f"Fenêtre de {window} jours trop grande pour {len(rendements)} "
-                f"jours d'historique disponibles (il resterait moins de 30 jours "
-                f"testables). Réduisez la fenêtre ou allongez l'historique."
+                f"Réduisez la fenêtre ou allongez l'historique."
             ),
         }), 400
 
@@ -400,13 +395,8 @@ def api_backtest():
                 confidence=confidence, n_scenarios=10_000, cov_method=cov_method,
             )
             resume = summarize_backtest(bt)
-            kupiec = kupiec_test(resume["n_obs"], resume["n_violations"], confidence)
             feu = traffic_light_zone(resume["n_violations"], resume["n_obs"], confidence)
-            christoffersen = christoffersen_independence_test(bt["violation"].values)
-            resultats_backtest[label] = {
-                "bt": bt, "resume": resume, "kupiec": kupiec,
-                "feu": feu, "christoffersen": christoffersen,
-            }
+            resultats_backtest[label] = {"bt": bt, "resume": resume, "feu": feu}
         ETAT["backtest"] = {"window": window, "resultats": resultats_backtest}
     except Exception as e:
         traceback.print_exc()
@@ -415,20 +405,13 @@ def api_backtest():
     lignes = []
     for label, r in resultats_backtest.items():
         resume = r["resume"]
-        kupiec = r["kupiec"]
-        christo = r["christoffersen"]
-        feu = r["feu"]
         lignes.append({
             "label": label,
             "n_obs": resume["n_obs"],
             "violations": resume["n_violations"],
             "taux_observe_pct": clean(resume["taux_violation"] * 100),
             "taux_attendu_pct": clean((1 - confidence) * 100),
-            "kupiec_p": clean(kupiec["p_value"]),
-            "kupiec_rejet": bool(kupiec["rejet_h0"]),
-            "christo_p": clean(christo["p_value"]),
-            "christo_rejet": bool(christo["rejet_h0"]),
-            "zone": feu["zone"],
+            "zone": r["feu"]["zone"],
         })
 
     ref_label = "Historique" if "Historique" in resultats_backtest else next(iter(resultats_backtest))
@@ -504,14 +487,12 @@ def api_export_pdf():
                 f"<td>{r['resume']['n_obs']}</td>"
                 f"<td>{r['resume']['n_violations']}</td>"
                 f"<td>{fmt_pct(r['resume']['taux_violation'] * 100)}%</td>"
-                f"<td>{fmt_pct(r['kupiec']['p_value'], 4)}</td>"
-                f"<td>{'Oui' if r['kupiec']['rejet_h0'] else 'Non'}</td>"
                 f"<td>{r['feu']['zone']}</td></tr>"
             )
         backtest_html = f"""
         <table>
           <tr><th>Méthode</th><th>Testés</th><th>Violations</th><th>Taux</th>
-              <th>Kupiec p</th><th>Rejeté</th><th>Zone Bâle</th></tr>
+              <th>Zone Bâle</th></tr>
           {lignes_bt}
         </table>
         <p>Fenêtre glissante : {backtest['window']} jours.</p>
