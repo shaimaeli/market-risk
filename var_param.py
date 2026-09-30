@@ -4,7 +4,7 @@ from scipy.stats import norm
 
 
 def var_es_parametrique(mv: pd.Series, matrice_covariance: pd.DataFrame,
-                         confidence: float = 0.99) -> dict:
+                         confidence: float = 0.99) :
     mv = mv.reindex(matrice_covariance.index)
 
     variance_annuelle = mv.T @ matrice_covariance @ mv

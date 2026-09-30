@@ -4,7 +4,7 @@ from positions import FACTEURS
 
 
 def var_es_historique(mv: pd.Series, rendements: pd.DataFrame,
-                       confidence: float = 0.99) -> dict:
+                       confidence: float = 0.99) :
     mv = mv.reindex(FACTEURS)
     valeur_portefeuille = mv.sum()
     poids = mv / valeur_portefeuille

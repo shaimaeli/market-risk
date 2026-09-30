@@ -8,7 +8,7 @@ def var_es_montecarlo(positions: dict,
                        matrice_covariance: pd.DataFrame,
                        n_scenarios: int = 500_000,
                        confidence: float = 0.99,
-                       seed: int = 42) -> dict:
+                       seed: int = 42) :
     cov = matrice_covariance.loc[FACTEURS, FACTEURS]
     cov_jour = cov / 252
     rng = np.random.default_rng(seed)

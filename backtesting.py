@@ -24,10 +24,7 @@ def rolling_backtest(rendements: pd.DataFrame, positions: dict, mv: pd.Series,
 
     if n <= window:
         raise ValueError(
-            f"Pas assez de données ({n} jours) pour une fenêtre de "
-            f"{window} jours : il ne resterait aucun jour à tester "
-            f"hors-échantillon. Réduis `window` ou utilise un historique "
-            f"plus long (voir build_data.py)."
+            f"Pas assez de données ({n} jours)."
         )
 
     ewma_cov_par_jour = {}

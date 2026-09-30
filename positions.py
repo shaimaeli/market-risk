@@ -47,8 +47,7 @@ def build_positions(valuation_date: pd.Timestamp = None, r: float = None) -> dic
     T = max((OPTION_EXPIRATION - valuation_date).days, 0) / 365
     if T <= 0:
         raise ValueError(
-            f"L'option AAPL 315 a expiré ({OPTION_EXPIRATION.date()}) par "
-            f"rapport à la date de valorisation demandée ({valuation_date.date()})."
+            f"L'option AAPL 315 a expiré."
         )
     q_div = 1 / S  
 

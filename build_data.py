@@ -3,14 +3,8 @@ import datetime
 import numpy as np
 import pandas as pd
 
-try:
-    import matplotlib
-    matplotlib.use("Agg")  
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    _HAS_PLOTTING = True
-except ImportError:  
-    _HAS_PLOTTING = False
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 import yfinance as yf
 from pandas_datareader import data as web
@@ -43,9 +37,7 @@ def _valider_start_date(start_date) -> str:
         )
     if (aujourdhui - d).days < 400:
         raise ValueError(
-            f"Historique trop court ({(aujourdhui - d).days} jours) : il "
-            f"faut au moins ~400 jours calendaires pour calibrer une "
-            f"fenêtre glissante et faire un backtest significatif."
+            f"Historique trop court."
         )
     return d.date().isoformat()
 
@@ -90,7 +82,7 @@ def construire_donnees(start_date: str, output_file: str = OUTPUT_FILE,
         auto_adjust=False, progress=False,
     )
     if data_eq.empty:
-        raise ValueError("Aucune donnée actions téléchargée pour cette période.")
+        raise ValueError("Aucune donnée actions téléchargée.")
 
     prices_eq = data_eq["Adj Close"].rename(columns=EQUITY_TICKERS)
     prices_eq = prices_eq[list(EQUITY_TICKERS.values())].dropna(how="any")
@@ -208,26 +200,25 @@ def construire_donnees(start_date: str, output_file: str = OUTPUT_FILE,
     ewma_annual_cov = ewma_daily_cov * NB_JOURS_OUVRES
 
     heatmap_path = None
-    if generer_heatmap and _HAS_PLOTTING:
-        log("Génération de la heatmap de corrélation...")
-        plt.figure(figsize=(11, 9))
-        mask = np.triu(np.ones_like(correlation_matrix, dtype=bool), k=1)
-        sns.heatmap(
+    log("Génération de la heatmap de corrélation...")
+    plt.figure(figsize=(11, 9))
+    mask = np.triu(np.ones_like(correlation_matrix, dtype=bool), k=1)
+    sns.heatmap(
             correlation_matrix, annot=True, fmt=".2f", cmap="RdYlGn", center=0,
             vmin=-1, vmax=1, square=True, linewidths=0.5,
             cbar_kws={"shrink": 0.8, "label": "Corrélation"}, mask=mask,
         )
-        plt.title(
+    plt.title(
             f"Corrélation du portefeuille\n({returns.index.min().date()} → "
             f"{returns.index.max().date()} | {n_obs} jours)",
             fontsize=12, fontweight="bold", pad=16,
         )
-        plt.xticks(rotation=45, ha="right")
-        plt.yticks(rotation=0)
-        plt.tight_layout()
-        heatmap_path = "static/heatmap_correlation.png"
-        plt.savefig(heatmap_path, dpi=150, bbox_inches="tight")
-        plt.close()
+    plt.xticks(rotation=45, ha="right")
+    plt.yticks(rotation=0)
+    plt.tight_layout()
+    heatmap_path = "static/heatmap_correlation.png"
+    plt.savefig(heatmap_path, dpi=150, bbox_inches="tight")
+    plt.close()
 
     log(f"Export vers {output_file}...")
     with pd.ExcelWriter(output_file, engine="openpyxl") as writer:
@@ -239,8 +230,6 @@ def construire_donnees(start_date: str, output_file: str = OUTPUT_FILE,
         correlation_matrix.to_excel(writer, sheet_name="Correlation")
         volatility_summary.to_excel(writer, sheet_name="Volatilites")
         stats.to_excel(writer, sheet_name="Statistiques_descriptives")
-
-    log("Pipeline terminé avec succès.")
 
     return {
         "start_date": start_date,
@@ -257,7 +246,6 @@ def construire_donnees(start_date: str, output_file: str = OUTPUT_FILE,
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
-        print("Usage : python build_data.py AAAA-MM-JJ  (date de début, obligatoire)")
         sys.exit(1)
     meta = construire_donnees(sys.argv[1])
     print(meta)

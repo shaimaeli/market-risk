@@ -19,7 +19,6 @@ from portefeuille_info import portfolio_metrics
 from backtesting import rolling_backtest, summarize_backtest
 from statistical_tests import traffic_light_zone
 app = Flask(__name__)
-app.secret_key = "risk-console-dev-key"  
 
 ETAT = {}
 
@@ -29,18 +28,15 @@ def etat_dispo():
 
 
 def require_etat_json():
-    """Retourne un tuple (réponse d'erreur, code) si aucune analyse n'est chargée."""
     if not etat_dispo():
         return jsonify({
             "ok": False,
-            "error": "Aucune analyse chargée : lancez d'abord une construction "
-                     "des données depuis l'onglet Configuration.",
+            "error": "Aucune analyse chargée.",
         }), 409
     return None
 
 
 def clean(v):
-    """Rend une valeur JSON-safe (NaN/inf -> None, numpy -> python natif)."""
     if v is None:
         return None
     if isinstance(v, (np.floating, np.integer)):
@@ -531,7 +527,7 @@ def api_export_pdf():
         {poids_html}
       </table>
 
-      <h2>VaR &amp; Expected Shortfall — comparaison des méthodes</h2>
+      <h2>VaR &amp; Expected Shortfall : comparaison des méthodes</h2>
       <table>
         <tr><th>Méthode</th><th>VaR</th><th>VaR (%)</th><th>Expected Shortfall</th></tr>
         {lignes_var_html}
@@ -539,7 +535,7 @@ def api_export_pdf():
 
       <h2>Statistiques descriptives par actif</h2>
       <table>
-        <tr><th>Actif</th><th>Rendement annuel</th><th>Vol. annualisée</th><th>Sharpe</th><th>Complétude</th></tr>
+        <tr><th>Actif</th><th>Rendement annuel</th><th>Vol. annualisée</th><th>Complétude</th></tr>
         {lignes_donnees_html}
       </table>
 
