@@ -1,11 +1,14 @@
-Application web qui mesure le risque d'un portefeuille(AAPL,MSFT,LVMH,S&P 500,OR,bond 5Y et 10Y, CALL AAPL ET PUT AAPL) à partir de données de marché réelles.
-Elle calcule la VaR et l'Expected Shortfall par plusieurs méthodes.
+Application web d'analyse de risque de marché (VaR, ES, backtesting Bâle).
+
+- VaR Paramétrique / Historique / Monte Carlo (simple & EWMA)
+- Backtesting avec zones Bâle
+- Export PDF de rapports
+
+Technologies:
+Python, Flask, Pandas, NumPy, xhtml2pdf
+
+Lancement:
+pip install -r requirements.txt
+python app.py
 <img width="927" height="433" alt="image" src="https://github.com/user-attachments/assets/256ebf42-6549-4c57-b822-9f0e96eaa273" />
-télécharge les historiques de prix depuis la date choisie, calcule les rendements, les volatilités et les matrices de covariance.
-- Deux estimations de la covariance: moyenne simple et EWMA.
-- VaR et Expected Shortfall par cinq méthodes :
-  - paramétrique (covariance simple et EWMA),
-  - historique,
-  - Monte Carlo (covariance simple et EWMA).
-- Backtesting sur fenêtre glissante, avec zone verte, jaune ou rouge de Bâle.
-- Export PDF d'un rapport complet.
+
