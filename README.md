@@ -10,5 +10,5 @@ Python, Flask, Pandas, NumPy, xhtml2pdf
 Lancement:
 pip install -r requirements.txt
 python app.py
-<img width="927" height="433" alt="image" src="https://github.com/user-attachments/assets/256ebf42-6549-4c57-b822-9f0e96eaa273" />
+<img width="919" height="428" alt="image" src="https://github.com/user-attachments/assets/7288a7f0-bceb-4778-a409-ea09ba7e966a" />
 
