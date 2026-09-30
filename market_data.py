@@ -39,7 +39,7 @@ def fetch_latest_treasury_yield(series: str) -> float:
     start = end - datetime.timedelta(days=30)
     data = web.DataReader(series, "fred", start, end).dropna()
     if data.empty:
-        raise ValueError(f"Aucune donnée FRED récupérée pour la série '{series}'.")
+        raise ValueError(f"Aucune donnée FRED récupérée.")
     return float(data[series].iloc[-1]) / 100
 
 
