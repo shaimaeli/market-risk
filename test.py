@@ -1,5 +1,5 @@
 from scipy.stats import binom
-
+import numpy as np
 
 def traffic_light_zone(n_violations: int, n_obs: int = 250,
                        confidence: float = 0.99):
@@ -26,3 +26,5 @@ def traffic_light_zone(n_violations: int, n_obs: int = 250,
         "commentaire": commentaire,
         "p_value_binomiale": p_value_binom,
     }
+    
+

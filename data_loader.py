@@ -3,7 +3,7 @@ import pandas as pd
 RISK_FILE = "Matrices_Risque_Portefeuille.xlsx"
 
 
-def _clean_matrix(df: pd.DataFrame) -> pd.DataFrame:
+def _clean_matrix(df: pd.DataFrame):
     df.index = df.index.astype(str).str.strip()
     df.columns = df.columns.astype(str).str.strip()
     return df

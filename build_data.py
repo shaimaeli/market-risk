@@ -23,7 +23,7 @@ LAMBDA_EWMA_DEFAUT = 0.94
 EQUITY_TICKERS = {info["ticker"]: name for name, info in EQUITIES.items()}
 
 
-def _valider_start_date(start_date) -> str:
+def _valider_start_date(start_date):
     if start_date is None or str(start_date).strip() == "":
         raise ValueError(
             "La date de début est obligatoire."
@@ -52,7 +52,7 @@ def bond_price(face_value, coupon_rate, yield_rate, maturity, valuation_date):
     return coupon * (1 - (1 + y) ** (-n)) / y + face_value * (1 + y) ** (-n)
 
 
-def ewma_covariance_matrix(returns_df: pd.DataFrame, lambda_: float = 0.94) -> pd.DataFrame:
+def ewma_covariance_matrix(returns_df: pd.DataFrame, lambda_: float = 0.94) :
     assets = returns_df.columns
     r = returns_df.values
     n_obs = r.shape[0]
@@ -66,7 +66,7 @@ def ewma_covariance_matrix(returns_df: pd.DataFrame, lambda_: float = 0.94) -> p
 def construire_donnees(start_date: str, output_file: str = OUTPUT_FILE,
                         lambda_ewma: float = LAMBDA_EWMA_DEFAUT,
                         generer_heatmap: bool = True,
-                        log_callback=None) -> dict:
+                        log_callback=None) :
     def log(msg):
         if log_callback:
             log_callback(msg)
@@ -171,14 +171,6 @@ def construire_donnees(start_date: str, output_file: str = OUTPUT_FILE,
             f"vérifiez la disponibilité des données."
         )
 
-    completude = {
-        "AAPL": len(returns_eq), "MSFT": len(returns_eq), "LVMH": len(returns_eq),
-        "S&P 500 Future": len(returns_fut), "Gold Future": len(returns_fut),
-        "AAPL 315 Call": len(returns_opt), "AAPL 315 Put": len(returns_opt),
-        "Treasury 5Y": len(returns_bonds), "Treasury 10Y": len(returns_bonds),
-    }
-    completude_pct = {k: round(100 * n_obs / v, 1) if v else 0.0 for k, v in completude.items()}
-
     log("Calcul des matrices de covariance et de corrélation...")
     covariance_matrix = returns.cov()
     annual_covariance_matrix = covariance_matrix * NB_JOURS_OUVRES
@@ -193,13 +185,11 @@ def construire_donnees(start_date: str, output_file: str = OUTPUT_FILE,
 
     stats = returns.describe().T
     stats["Rendement moyen annuel (%)"] = (returns.mean() * NB_JOURS_OUVRES * 100).round(4)
-    stats["Sharpe approx."] = (returns.mean() / returns.std() * np.sqrt(NB_JOURS_OUVRES)).round(4)
 
     log(f"Calcul de la covariance EWMA (lambda={lambda_ewma})...")
     ewma_daily_cov = ewma_covariance_matrix(returns, lambda_=lambda_ewma)
     ewma_annual_cov = ewma_daily_cov * NB_JOURS_OUVRES
 
-    heatmap_path = None
     log("Génération de la heatmap de corrélation...")
     plt.figure(figsize=(11, 9))
     mask = np.triu(np.ones_like(correlation_matrix, dtype=bool), k=1)
@@ -236,7 +226,6 @@ def construire_donnees(start_date: str, output_file: str = OUTPUT_FILE,
         "end_date": returns.index.max().date().isoformat(),
         "n_obs": n_obs,
         "actifs": list(returns.columns),
-        "completude_pct": completude_pct,
         "heatmap_path": heatmap_path,
         "output_file": output_file,
         "lambda_ewma": lambda_ewma,
