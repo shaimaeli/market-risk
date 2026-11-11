@@ -16,13 +16,13 @@ BONDS = {
         "coupon": 0.0425,
         "maturity": pd.Timestamp("2031-06-30"),
         "yield_series": "DGS5",
-        "qty": 150,
+        "qty": 10,
     },
     "Treasury 10Y": {
         "coupon": 0.0425,
         "maturity": pd.Timestamp("2035-05-15"),
         "yield_series": "DGS10",
-        "qty": 150,
+        "qty": 10,
     },
 }
 
